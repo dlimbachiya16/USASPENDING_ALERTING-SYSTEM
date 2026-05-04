@@ -7,10 +7,21 @@ from datetime import datetime, timedelta
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
-MIN_AMOUNT = 50_000_000
+MIN_AMOUNT = 40_000_000
 PAGE_DELAY = 1.5
 RETRY_DELAY = 10
 MAX_RETRIES = 3
+
+AWARD_TYPE_MAP = {
+    "A": "BPA Call", "B": "Purchase Order", "C": "Delivery Order", "D": "Definitive Contract",
+    "02": "Block Grant", "03": "Formula Grant", "04": "Project Grant", "05": "Cooperative Agreement",
+    "06": "Direct Payment (Specified Use)", "07": "Direct Loan", "08": "Guaranteed Loan",
+    "09": "Insurance", "10": "Direct Payment (Unrestricted)", "11": "Other Financial Assistance",
+    "-1": "Not Specified",
+    "IDV_A": "GWAC", "IDV_B": "IDC Multi-Agency", "IDV_B_A": "IDC Requirements",
+    "IDV_B_B": "IDC Indefinite Quantity", "IDV_B_C": "IDC Definite Quantity",
+    "IDV_C": "Federal Supply Schedule", "IDV_D": "Basic Ordering Agreement", "IDV_E": "BPA"
+}
 
 AWARD_TYPE_GROUPS = [
     (["A", "B", "C", "D"],                                                             "Award Amount"),        # contracts
@@ -160,7 +171,6 @@ def main():
         new_seen.add(award_id)
         new_awards.append(award)
 
-    # Sort oldest start date to newest before sending
     new_awards.sort(key=lambda a: a.get("Start Date") or "")
 
     alerts_sent = 0
@@ -170,7 +180,8 @@ def main():
         recipient = award.get("Recipient Name") or "Unknown Recipient"
         agency = award.get("Awarding Agency") or "Unknown Agency"
         sub_agency = award.get("Awarding Sub Agency") or ""
-        award_type = award.get("Award Type") or "Unknown Type"
+        award_type_code = award.get("Award Type") or ""
+        award_type = AWARD_TYPE_MAP.get(award_type_code, award_type_code or "Unknown Type")
         description = award.get("Description") or "No description"
         start_date = award.get("Start Date") or "N/A"
         state = award.get("Place of Performance State Code") or ""
@@ -190,7 +201,7 @@ def main():
             f"📝 <b>Desc:</b> {description}\n"
             f"📅 <b>Start Date:</b> {start_date}\n"
             f"📍 <b>Location:</b> {location}\n"
-            f"🔗 <b>ID:</b> {award_id}"
+            f"🔗 <a href='https://www.usaspending.gov/award/{award_id}/'>{award_id}</a>"
         )
 
         send_telegram(message)
