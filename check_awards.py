@@ -23,6 +23,16 @@ AWARD_TYPE_MAP = {
     "IDV_C": "Federal Supply Schedule", "IDV_D": "Basic Ordering Agreement", "IDV_E": "BPA"
 }
 
+GROUP_LABEL_MAP = {
+    "A": "Contract", "B": "Contract", "C": "Contract", "D": "Contract",
+    "02": "Grant", "03": "Grant", "04": "Grant", "05": "Grant",
+    "06": "Other Financial Assistance", "10": "Other Financial Assistance",
+    "09": "Direct Payment", "11": "Direct Payment", "-1": "Direct Payment",
+    "07": "Loan", "08": "Loan",
+    "IDV_A": "IDV", "IDV_B": "IDV", "IDV_B_A": "IDV", "IDV_B_B": "IDV",
+    "IDV_B_C": "IDV", "IDV_C": "IDV", "IDV_D": "IDV", "IDV_E": "IDV"
+}
+
 AWARD_TYPE_GROUPS = [
     (["A", "B", "C", "D"],                                                             "Award Amount"),        # contracts
     (["02", "03", "04", "05"],                                                          "Award Amount"),        # grants
@@ -77,6 +87,7 @@ def fetch_awards_for_group(type_codes, sort_field):
     is_loan = "07" in type_codes
     fields = [
         "Award ID",
+        "generated_internal_id",
         "Recipient Name",
         "Award Amount",
         "Awarding Agency",
@@ -123,6 +134,9 @@ def fetch_awards_for_group(type_codes, sort_field):
             break
         data = resp.json()
         results = data.get("results", [])
+        # Tag each result with its group so we can label type if API returns null
+        for r in results:
+            r["_group_codes"] = type_codes
         all_awards.extend(results)
         print(f"  Page {payload['page']}: got {len(results)} results")
         if len(results) < payload["limit"]:
@@ -148,6 +162,18 @@ def format_amount(amount):
     if amount >= 1_000_000_000:
         return f"${amount/1_000_000_000:.2f}B"
     return f"${amount/1_000_000:.2f}M"
+
+def resolve_type(award):
+    # Try the API-returned type code first
+    code = award.get("Award Type") or ""
+    if code and code in AWARD_TYPE_MAP:
+        return AWARD_TYPE_MAP[code]
+    # Fall back to group label
+    group_codes = award.get("_group_codes", [])
+    for gc in group_codes:
+        if gc in GROUP_LABEL_MAP:
+            return GROUP_LABEL_MAP[gc]
+    return "Unknown Type"
 
 def main():
     seen = load_seen()
@@ -176,12 +202,12 @@ def main():
     alerts_sent = 0
     for award in new_awards:
         award_id = award.get("Award ID")
+        internal_id = award.get("generated_internal_id") or award_id
         amount = award.get("Award Amount") or 0
         recipient = award.get("Recipient Name") or "Unknown Recipient"
         agency = award.get("Awarding Agency") or "Unknown Agency"
         sub_agency = award.get("Awarding Sub Agency") or ""
-        award_type_code = award.get("Award Type") or ""
-        award_type = AWARD_TYPE_MAP.get(award_type_code, award_type_code or "Unknown Type")
+        award_type = resolve_type(award)
         description = award.get("Description") or "No description"
         start_date = award.get("Start Date") or "N/A"
         state = award.get("Place of Performance State Code") or ""
@@ -190,6 +216,8 @@ def main():
 
         if len(description) > 120:
             description = description[:117] + "..."
+
+        link = f"https://www.usaspending.gov/award/{internal_id}/"
 
         message = (
             f"🏛 <b>NEW GOV AWARD</b>\n\n"
@@ -201,7 +229,7 @@ def main():
             f"📝 <b>Desc:</b> {description}\n"
             f"📅 <b>Start Date:</b> {start_date}\n"
             f"📍 <b>Location:</b> {location}\n"
-            f"🔗 <a href='https://www.usaspending.gov/award/{award_id}/'>{award_id}</a>"
+            f"🔗 <a href='{link}'>{award_id}</a>"
         )
 
         send_telegram(message)
