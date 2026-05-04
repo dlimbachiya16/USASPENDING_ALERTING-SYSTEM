@@ -154,6 +154,11 @@ def main():
         if amount < MIN_AMOUNT:
             continue
 
+        # Filter out awards with start dates before 2025
+        start_date = award.get("Start Date") or ""
+        if start_date and start_date < "2025-01-01":
+            continue
+
         new_seen.add(award_id)
 
         recipient = award.get("Recipient Name") or "Unknown Recipient"
@@ -161,7 +166,7 @@ def main():
         sub_agency = award.get("Awarding Sub Agency") or ""
         award_type = award.get("Award Type") or "Unknown Type"
         description = award.get("Description") or "No description"
-        start_date = award.get("Start Date") or "N/A"
+        start_date_display = start_date if start_date else "N/A"
         state = award.get("Place of Performance State Code") or ""
         country = award.get("Place of Performance Country Code") or ""
         location = f"{state}, {country}".strip(", ") if state or country else "N/A"
@@ -177,7 +182,7 @@ def main():
             f"📁 <b>Sub-Agency:</b> {sub_agency}\n"
             f"📋 <b>Type:</b> {award_type}\n"
             f"📝 <b>Desc:</b> {description}\n"
-            f"📅 <b>Start Date:</b> {start_date}\n"
+            f"📅 <b>Start Date:</b> {start_date_display}\n"
             f"📍 <b>Location:</b> {location}\n"
             f"🔗 <b>ID:</b> {award_id}"
         )
