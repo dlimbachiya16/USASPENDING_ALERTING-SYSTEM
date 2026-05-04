@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
-MIN_AMOUNT = 100_000_000
+MIN_AMOUNT = 50_000_000
 PAGE_DELAY = 1.5
 RETRY_DELAY = 10
 MAX_RETRIES = 3
