@@ -181,7 +181,7 @@ def main():
             description = description[:117] + "..."
 
         message = (
-            f"🏛 <b>NEW GOV AWARD &gt; $100M</b>\n\n"
+            f"🏛 <b>NEW GOV AWARD</b>\n\n"
             f"💰 <b>Amount:</b> {format_amount(amount)}\n"
             f"🏢 <b>Recipient:</b> {recipient}\n"
             f"🏦 <b>Agency:</b> {agency}\n"
