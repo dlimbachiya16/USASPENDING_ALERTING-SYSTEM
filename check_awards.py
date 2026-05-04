@@ -47,7 +47,7 @@ def fetch_awards_for_group(type_codes, sort_field):
             "award_type_codes": type_codes,
             "time_period": [
                 {
-                    "start_date": date_start,
+                    "start_date": "2026-01-01",
                     "end_date": date_end
                 }
             ],
