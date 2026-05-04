@@ -8,6 +8,14 @@ TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
 MIN_AMOUNT = 5_000_000
 
+AWARD_TYPE_GROUPS = [
+    ["A", "B", "C", "D"],                          # contracts
+    ["02", "03", "04", "05"],                       # grants
+    ["06", "09", "10", "11", "-1"],                 # direct payments / other
+    ["07", "08"],                                   # loans
+    ["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"],  # idvs
+]
+
 def load_seen():
     if os.path.exists(SEEN_FILE):
         with open(SEEN_FILE, "r") as f:
@@ -27,15 +35,13 @@ def send_telegram(message):
     }
     requests.post(url, json=payload)
 
-def fetch_awards():
+def fetch_awards_for_group(type_codes):
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
-    
-    # Look back 2 days to avoid missing anything between runs
     date_start = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
-    
+
     payload = {
         "filters": {
-            "award_type_codes": ["A", "B", "C", "D", "02", "03", "04", "05"],
+            "award_type_codes": type_codes,
             "date_type": "action_date",
             "time_period": [
                 {
@@ -71,7 +77,7 @@ def fetch_awards():
     while True:
         resp = requests.post(url, json=payload, timeout=30)
         if resp.status_code != 200:
-            print(f"API error: {resp.status_code} {resp.text}")
+            print(f"API error for group {type_codes}: {resp.status_code} {resp.text}")
             break
         data = resp.json()
         results = data.get("results", [])
@@ -80,6 +86,15 @@ def fetch_awards():
             break
         payload["page"] += 1
 
+    return all_awards
+
+def fetch_all_awards():
+    all_awards = []
+    for group in AWARD_TYPE_GROUPS:
+        print(f"Fetching group: {group}")
+        awards = fetch_awards_for_group(group)
+        print(f"  Got {len(awards)} awards")
+        all_awards.extend(awards)
     return all_awards
 
 def format_amount(amount):
@@ -91,7 +106,7 @@ def format_amount(amount):
 
 def main():
     seen = load_seen()
-    awards = fetch_awards()
+    awards = fetch_all_awards()
     new_seen = set(seen)
     alerts_sent = 0
 
@@ -116,7 +131,6 @@ def main():
         country = award.get("Place of Performance Country Code") or ""
         location = f"{state}, {country}".strip(", ") if state or country else "N/A"
 
-        # Trim description so message stays clean
         if len(description) > 120:
             description = description[:117] + "..."
 
