@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
-MIN_AMOUNT = 5_000_000
+MIN_AMOUNT = 100_000_000
 PAGE_DELAY = 1.5
 RETRY_DELAY = 10
 MAX_RETRIES = 3
@@ -63,7 +63,6 @@ def fetch_awards_for_group(type_codes, sort_field):
     if date_start < "2025-01-01":
         date_start = "2025-01-01"
 
-    # Loans need Last Modified Date in fields to sort by it
     is_loan = "07" in type_codes
     fields = [
         "Award ID",
@@ -143,7 +142,7 @@ def main():
     seen = load_seen()
     awards = fetch_all_awards()
     new_seen = set(seen)
-    alerts_sent = 0
+    new_awards = []
 
     for award in awards:
         award_id = award.get("Award ID")
@@ -154,19 +153,26 @@ def main():
         if amount < MIN_AMOUNT:
             continue
 
-        # Filter out awards with start dates before 2025
         start_date = award.get("Start Date") or ""
         if start_date and start_date < "2025-01-01":
             continue
 
         new_seen.add(award_id)
+        new_awards.append(award)
 
+    # Sort oldest start date to newest before sending
+    new_awards.sort(key=lambda a: a.get("Start Date") or "")
+
+    alerts_sent = 0
+    for award in new_awards:
+        award_id = award.get("Award ID")
+        amount = award.get("Award Amount") or 0
         recipient = award.get("Recipient Name") or "Unknown Recipient"
         agency = award.get("Awarding Agency") or "Unknown Agency"
         sub_agency = award.get("Awarding Sub Agency") or ""
         award_type = award.get("Award Type") or "Unknown Type"
         description = award.get("Description") or "No description"
-        start_date_display = start_date if start_date else "N/A"
+        start_date = award.get("Start Date") or "N/A"
         state = award.get("Place of Performance State Code") or ""
         country = award.get("Place of Performance Country Code") or ""
         location = f"{state}, {country}".strip(", ") if state or country else "N/A"
@@ -175,14 +181,14 @@ def main():
             description = description[:117] + "..."
 
         message = (
-            f"🏛 <b>NEW GOV AWARD &gt; $5M</b>\n\n"
+            f"🏛 <b>NEW GOV AWARD &gt; $100M</b>\n\n"
             f"💰 <b>Amount:</b> {format_amount(amount)}\n"
             f"🏢 <b>Recipient:</b> {recipient}\n"
             f"🏦 <b>Agency:</b> {agency}\n"
             f"📁 <b>Sub-Agency:</b> {sub_agency}\n"
             f"📋 <b>Type:</b> {award_type}\n"
             f"📝 <b>Desc:</b> {description}\n"
-            f"📅 <b>Start Date:</b> {start_date_display}\n"
+            f"📅 <b>Start Date:</b> {start_date}\n"
             f"📍 <b>Location:</b> {location}\n"
             f"🔗 <b>ID:</b> {award_id}"
         )
