@@ -2,7 +2,7 @@ name: USASpending Awards Alert
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # runs every 6 hours
+    - cron: '*/30 * * * *'   # runs every 30 minutes
   workflow_dispatch:          # lets you trigger manually too
 
 jobs:
