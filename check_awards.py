@@ -57,13 +57,28 @@ def post_with_retry(url, payload):
 def fetch_awards_for_group(type_codes, sort_field):
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
 
-    # Rolling 2 day window per run, seen_awards.json prevents duplicates across runs
-    date_start = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
+    date_start = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
     date_end = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # But never go earlier than Jan 1 2026
     if date_start < "2026-01-01":
         date_start = "2026-01-01"
+
+    # Loans need Last Modified Date in fields to sort by it
+    is_loan = "07" in type_codes
+    fields = [
+        "Award ID",
+        "Recipient Name",
+        "Award Amount",
+        "Awarding Agency",
+        "Awarding Sub Agency",
+        "Award Type",
+        "Description",
+        "Start Date",
+        "Place of Performance State Code",
+        "Place of Performance Country Code"
+    ]
+    if is_loan:
+        fields.append("Last Modified Date")
 
     payload = {
         "filters": {
@@ -80,18 +95,7 @@ def fetch_awards_for_group(type_codes, sort_field):
                 }
             ]
         },
-        "fields": [
-            "Award ID",
-            "Recipient Name",
-            "Award Amount",
-            "Awarding Agency",
-            "Awarding Sub Agency",
-            "Award Type",
-            "Description",
-            "Start Date",
-            "Place of Performance State Code",
-            "Place of Performance Country Code"
-        ],
+        "fields": fields,
         "sort": sort_field,
         "order": "desc",
         "limit": 100,
