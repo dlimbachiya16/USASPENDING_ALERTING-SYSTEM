@@ -8,8 +8,8 @@ TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
 MIN_AMOUNT = 5_000_000
-PAGE_DELAY = 1.5      # seconds between paginated requests
-RETRY_DELAY = 10      # seconds before retrying on connection error
+PAGE_DELAY = 1.5
+RETRY_DELAY = 10
 MAX_RETRIES = 3
 
 AWARD_TYPE_GROUPS = [
@@ -57,9 +57,13 @@ def post_with_retry(url, payload):
 def fetch_awards_for_group(type_codes, sort_field):
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
 
-    # Only look back 2 days per run, seen_awards.json handles deduplication
+    # Rolling 2 day window per run, seen_awards.json prevents duplicates across runs
     date_start = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
     date_end = datetime.utcnow().strftime("%Y-%m-%d")
+
+    # But never go earlier than Jan 1 2026
+    if date_start < "2026-01-01":
+        date_start = "2026-01-01"
 
     payload = {
         "filters": {
@@ -121,7 +125,7 @@ def fetch_all_awards():
         awards = fetch_awards_for_group(type_codes, sort_field)
         print(f"  Total for group: {len(awards)}")
         all_awards.extend(awards)
-        time.sleep(2)  # pause between groups
+        time.sleep(2)
     return all_awards
 
 def format_amount(amount):
