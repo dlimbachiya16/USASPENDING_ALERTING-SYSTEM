@@ -2,8 +2,11 @@ name: USASpending Awards Alert
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # runs every 30 minutes
-  workflow_dispatch:          # lets you trigger manually too
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   check-awards:
