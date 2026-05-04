@@ -1,21 +1,20 @@
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
 MIN_AMOUNT = 5_000_000
 
-# Each tuple: (list of type codes, sort field)
 AWARD_TYPE_GROUPS = [
-    (["A", "B", "C", "D"],                                                              "Award Amount"),  # contracts
-    (["02", "03", "04", "05"],                                                           "Award Amount"),  # grants
-    (["06", "10"],                                                                       "Award Amount"),  # other financial assistance
-    (["09", "11", "-1"],                                                                 "Award Amount"),  # direct payments
-    (["07", "08"],                                                                       "Last Modified Date"),  # loans (Amount not supported)
-    (["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"],  "Award Amount"),  # idvs
+    (["A", "B", "C", "D"],                                                             "Award Amount"),   # contracts
+    (["02", "03", "04", "05"],                                                          "Award Amount"),   # grants
+    (["06", "10"],                                                                      "Award Amount"),   # other financial assistance
+    (["09", "11", "-1"],                                                                "Award Amount"),   # direct payments
+    (["07", "08"],                                                                      "Last Modified Date"),  # loans
+    (["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"], "Award Amount"),   # idvs
 ]
 
 def load_seen():
@@ -39,7 +38,6 @@ def send_telegram(message):
 
 def fetch_awards_for_group(type_codes, sort_field):
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
-    date_start = (datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d")
     date_end = datetime.utcnow().strftime("%Y-%m-%d")
 
     payload = {
