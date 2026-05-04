@@ -60,8 +60,8 @@ def fetch_awards_for_group(type_codes, sort_field):
     date_start = (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
     date_end = datetime.utcnow().strftime("%Y-%m-%d")
 
-    if date_start < "2026-01-01":
-        date_start = "2026-01-01"
+    if date_start < "2025-01-01":
+        date_start = "2025-01-01"
 
     # Loans need Last Modified Date in fields to sort by it
     is_loan = "07" in type_codes
