@@ -1,20 +1,24 @@
 import requests
 import json
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 SEEN_FILE = "seen_awards.json"
 MIN_AMOUNT = 5_000_000
+PAGE_DELAY = 1.5      # seconds between paginated requests
+RETRY_DELAY = 10      # seconds before retrying on connection error
+MAX_RETRIES = 3
 
 AWARD_TYPE_GROUPS = [
-    (["A", "B", "C", "D"],                                                             "Award Amount"),   # contracts
-    (["02", "03", "04", "05"],                                                          "Award Amount"),   # grants
-    (["06", "10"],                                                                      "Award Amount"),   # other financial assistance
-    (["09", "11", "-1"],                                                                "Award Amount"),   # direct payments
+    (["A", "B", "C", "D"],                                                             "Award Amount"),        # contracts
+    (["02", "03", "04", "05"],                                                          "Award Amount"),        # grants
+    (["06", "10"],                                                                      "Award Amount"),        # other financial assistance
+    (["09", "11", "-1"],                                                                "Award Amount"),        # direct payments
     (["07", "08"],                                                                      "Last Modified Date"),  # loans
-    (["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"], "Award Amount"),   # idvs
+    (["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"], "Award Amount"),        # idvs
 ]
 
 def load_seen():
@@ -34,10 +38,27 @@ def send_telegram(message):
         "text": message,
         "parse_mode": "HTML"
     }
-    requests.post(url, json=payload)
+    try:
+        requests.post(url, json=payload, timeout=15)
+    except Exception as e:
+        print(f"Telegram send error: {e}")
+
+def post_with_retry(url, payload):
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.post(url, json=payload, timeout=45)
+            return resp
+        except requests.exceptions.ConnectionError as e:
+            print(f"Connection error on attempt {attempt}/{MAX_RETRIES}: {e}")
+            if attempt < MAX_RETRIES:
+                time.sleep(RETRY_DELAY)
+    return None
 
 def fetch_awards_for_group(type_codes, sort_field):
     url = "https://api.usaspending.gov/api/v2/search/spending_by_award/"
+
+    # Only look back 2 days per run, seen_awards.json handles deduplication
+    date_start = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
     date_end = datetime.utcnow().strftime("%Y-%m-%d")
 
     payload = {
@@ -45,7 +66,7 @@ def fetch_awards_for_group(type_codes, sort_field):
             "award_type_codes": type_codes,
             "time_period": [
                 {
-                    "start_date": "2026-01-01",
+                    "start_date": date_start,
                     "end_date": date_end
                 }
             ],
@@ -75,16 +96,21 @@ def fetch_awards_for_group(type_codes, sort_field):
 
     all_awards = []
     while True:
-        resp = requests.post(url, json=payload, timeout=30)
+        resp = post_with_retry(url, payload)
+        if resp is None:
+            print(f"Skipping group {type_codes} after max retries.")
+            break
         if resp.status_code != 200:
             print(f"API error for {type_codes}: {resp.status_code} {resp.text[:300]}")
             break
         data = resp.json()
         results = data.get("results", [])
         all_awards.extend(results)
+        print(f"  Page {payload['page']}: got {len(results)} results")
         if len(results) < payload["limit"]:
             break
         payload["page"] += 1
+        time.sleep(PAGE_DELAY)
 
     return all_awards
 
@@ -93,8 +119,9 @@ def fetch_all_awards():
     for type_codes, sort_field in AWARD_TYPE_GROUPS:
         print(f"Fetching group: {type_codes}")
         awards = fetch_awards_for_group(type_codes, sort_field)
-        print(f"  Got {len(awards)} awards")
+        print(f"  Total for group: {len(awards)}")
         all_awards.extend(awards)
+        time.sleep(2)  # pause between groups
     return all_awards
 
 def format_amount(amount):
